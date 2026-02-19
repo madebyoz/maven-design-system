@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maven Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sidebar-w: 280px; --header-h: 56px; --content-max: 780px; --toc-w: 220px;
+    --bg: #ffffff; --bg-sidebar: #FAFAFA; --bg-code: #F6F6F7; --bg-tip: #FFF7ED; --bg-info: #EFF6FF; --bg-grid-demo: #1A1A2E;
+    --text-primary: #1A1A1A; --text-secondary: #5C5C5C; --text-tertiary: #8C8C8C; --text-inverse: #FAFAFA;
+    --accent: #F04E23; --accent-light: #FFF0EB; --accent-hover: #D9421D; --blue: #3B82F6; --blue-light: #DBEAFE; --green: #10B981;
+    --border: #E5E5E5; --border-light: #F0F0F0;
+    --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05); --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    --font-sans: 'IBM Plex Sans', 'Noto Sans JP', sans-serif; --font-mono: 'IBM Plex Mono', 'Menlo', monospace;
+    --transition: 0.2s ease;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; font-size: 15px; }
+  body { font-family: var(--font-sans); color: var(--text-primary); background: var(--bg); line-height: 1.7; -webkit-font-smoothing: antialiased; }
+
+  .sidebar { position: fixed; top: 0; left: 0; width: var(--sidebar-w); height: 100vh; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; overflow: hidden; transition: transform 0.3s ease; }
+  .sidebar-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .sidebar-logo { width: 32px; height: 32px; background: var(--accent); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: white; letter-spacing: -0.5px; }
+  .sidebar-title { font-size: 14px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+  .sidebar-subtitle { font-size: 11px; color: var(--text-tertiary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sidebar-nav { flex: 1; overflow-y: auto; padding: 16px 0; }
+  .sidebar-nav::-webkit-scrollbar { width: 4px; }
+  .sidebar-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .nav-group { margin-bottom: 8px; }
+  .nav-group-title { padding: 6px 24px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-tertiary); }
+  .nav-link { display: flex; align-items: center; gap: 8px; padding: 7px 24px; font-size: 13.5px; color: var(--text-secondary); text-decoration: none; transition: all var(--transition); border-left: 2px solid transparent; cursor: pointer; }
+  .nav-link:hover { color: var(--text-primary); background: rgba(0,0,0,0.03); }
+  .nav-link.active { color: var(--accent); background: var(--accent-light); border-left-color: var(--accent); font-weight: 500; }
+  .nav-link .nav-icon { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.5; }
+  .nav-link.active .nav-icon { opacity: 1; }
+  .sidebar-footer { padding: 16px 24px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .sidebar-version { font-size: 11px; color: var(--text-tertiary); display: flex; align-items: center; gap: 6px; }
+  .version-badge { background: var(--accent); color: white; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 10px; }
+
+  .main { margin-left: var(--sidebar-w); min-height: 100vh; }
+  .top-bar { position: sticky; top: 0; z-index: 50; height: var(--header-h); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; padding: 0 48px; }
+  .breadcrumb { font-size: 13px; color: var(--text-tertiary); }
+  .breadcrumb a { color: var(--text-tertiary); text-decoration: none; transition: color var(--transition); }
+  .breadcrumb a:hover { color: var(--text-primary); }
+  .breadcrumb .sep { margin: 0 6px; }
+  .breadcrumb .current { color: var(--text-primary); font-weight: 500; }
+
+  .lang-toggle { display: flex; align-items: center; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 20px; padding: 2px; flex-shrink: 0; }
+  .lang-btn { padding: 4px 14px; font-size: 12px; font-weight: 600; border: none; background: transparent; color: var(--text-tertiary); cursor: pointer; border-radius: 18px; transition: all var(--transition); letter-spacing: 0.3px; font-family: var(--font-sans); }
+  .lang-btn.active { background: var(--text-primary); color: white; box-shadow: var(--shadow-sm); }
+  .lang-btn:hover:not(.active) { color: var(--text-primary); }
+
+  .content-wrapper { display: flex; max-width: calc(var(--content-max) + var(--toc-w) + 120px); margin: 0 auto; padding: 0 48px; }
+  .content { flex: 1; max-width: var(--content-max); padding: 48px 0 120px; }
+
+  .toc { width: var(--toc-w); flex-shrink: 0; margin-left: 48px; padding-top: 48px; position: sticky; top: calc(var(--header-h) + 24px); align-self: flex-start; max-height: calc(100vh - var(--header-h) - 48px); overflow-y: auto; }
+  .toc-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-tertiary); margin-bottom: 12px; }
+  .toc a { display: block; font-size: 12.5px; color: var(--text-tertiary); text-decoration: none; padding: 4px 0 4px 12px; border-left: 1.5px solid var(--border-light); transition: all var(--transition); line-height: 1.5; }
+  .toc a:hover { color: var(--text-primary); border-left-color: var(--text-secondary); }
+  .toc a.active { color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+  .toc a.toc-h3 { padding-left: 24px; font-size: 12px; }
+
+  .section { margin-bottom: 0; padding-bottom: 48px; }
+  .section + .section { border-top: 1px solid var(--border-light); padding-top: 48px; }
+  .page-header { margin-bottom: 48px; }
+  .page-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  .page-badge::before { content: ''; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+  .page-title { font-size: 2.4rem; font-weight: 700; line-height: 1.2; color: var(--text-primary); letter-spacing: -0.02em; margin-bottom: 16px; }
+  .page-description { font-size: 1.15rem; color: var(--text-secondary); line-height: 1.65; max-width: 600px; }
+  h2 { font-size: 1.55rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; margin-bottom: 12px; scroll-margin-top: calc(var(--header-h) + 24px); }
+  h3 { font-size: 1.15rem; font-weight: 600; color: var(--text-primary); margin-top: 32px; margin-bottom: 10px; scroll-margin-top: calc(var(--header-h) + 24px); }
+  .content p { color: var(--text-secondary); margin-bottom: 16px; line-height: 1.75; }
+  .content strong { color: var(--text-primary); font-weight: 600; }
+  pre { background: var(--bg-code); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 20px 24px; overflow-x: auto; margin: 16px 0 24px; font-family: var(--font-mono); font-size: 13px; line-height: 1.65; color: var(--text-primary); }
+  code { font-family: var(--font-mono); font-size: 0.9em; background: var(--bg-code); padding: 2px 6px; border-radius: 3px; color: var(--accent); }
+  pre code { background: none; padding: 0; color: inherit; }
+  .code-label { display: inline-block; font-size: 11px; font-weight: 600; font-family: var(--font-mono); color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .callout { padding: 16px 20px; border-radius: var(--radius-md); margin: 20px 0; font-size: 14px; line-height: 1.65; display: flex; gap: 12px; }
+  .callout-icon { flex-shrink: 0; width: 20px; height: 20px; margin-top: 1px; }
+  .callout-content { flex: 1; }
+  .callout-content p { margin-bottom: 0; color: inherit; }
+  .callout-content strong { color: inherit; }
+  .callout.tip { background: var(--bg-tip); border: 1px solid #FED7AA; color: #92400E; }
+  .callout.info { background: var(--bg-info); border: 1px solid #BFDBFE; color: #1E40AF; }
+  .table-wrapper { overflow-x: auto; margin: 16px 0 24px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead { background: var(--bg-sidebar); }
+  th { text-align: left; padding: 10px 16px; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 16px; border-bottom: 1px solid var(--border-light); color: var(--text-secondary); }
+  tr:last-child td { border-bottom: none; }
+  td code { font-size: 12.5px; white-space: nowrap; }
+
+  .grid-demo { background: var(--bg-grid-demo); border-radius: var(--radius-lg); padding: 32px; margin: 20px 0 28px; overflow: hidden; position: relative; }
+  .grid-demo-label { font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  .canvas-demo { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-sm); aspect-ratio: 16/9; position: relative; overflow: hidden; }
+  .margin-layer { position: absolute; inset: 0; border: 1px dashed rgba(240,78,35,0.3); }
+  .live-area { position: absolute; top: 7%; bottom: 8%; left: 4%; right: 4%; border: 1.5px solid rgba(240,78,35,0.6); border-radius: 2px; }
+  .live-area::after { content: 'LIVE AREA'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: rgba(240,78,35,0.5); letter-spacing: 2px; }
+  .margin-label { position: absolute; font-family: var(--font-mono); font-size: 9px; color: rgba(255,255,255,0.3); }
+  .margin-label.top { top: 2%; left: 50%; transform: translateX(-50%); }
+  .margin-label.bottom { bottom: 2%; left: 50%; transform: translateX(-50%); }
+  .margin-label.left { left: 0.8%; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+  .margin-label.right { right: 0.8%; top: 50%; transform: translateY(-50%) rotate(90deg); }
+  .columns-demo { position: absolute; top: 7%; bottom: 8%; left: 4%; right: 4%; display: flex; gap: 2%; }
+  .col-bar { flex: 1; background: rgba(240,78,35,0.12); border: 1px solid rgba(240,78,35,0.2); border-radius: 2px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; }
+  .col-bar span { font-family: var(--font-mono); font-size: 10px; color: rgba(240,78,35,0.5); font-weight: 500; }
+  .zone { position: absolute; left: 4%; right: 4%; border-radius: 2px; display: flex; align-items: center; padding-left: 12px; font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.5px; }
+  .zone.title-zone { top: 7%; height: 18%; background: rgba(240,78,35,0.15); border: 1px solid rgba(240,78,35,0.25); color: rgba(240,78,35,0.7); }
+  .zone.content-zone { top: 27%; height: 55%; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); color: rgba(59,130,246,0.6); }
+  .zone.footer-zone { top: 84%; height: 9%; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: rgba(16,185,129,0.6); }
+
+  .layout-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0 28px; }
+  .layout-card { background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px; transition: all var(--transition); }
+  .layout-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
+  .layout-card-title { font-size: 13px; font-weight: 600; font-family: var(--font-mono); color: var(--text-primary); margin-bottom: 4px; }
+  .layout-card-desc { font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px; }
+  .layout-mini { aspect-ratio: 16/9; background: var(--bg-grid-demo); border-radius: var(--radius-sm); position: relative; overflow: hidden; padding: 8%; }
+  .layout-mini .block { position: absolute; border-radius: 2px; }
+  .layout-mini .block.title-b { background: rgba(240,78,35,0.5); }
+  .layout-mini .block.content-b { background: rgba(59,130,246,0.35); }
+  .layout-mini .block.image-b { background: rgba(16,185,129,0.35); }
+  .layout-mini .block.footer-b { background: rgba(255,255,255,0.08); }
+
+  .spacing-scale { display: flex; flex-direction: column; gap: 8px; margin: 16px 0 24px; }
+  .spacing-row { display: flex; align-items: center; gap: 16px; }
+  .spacing-label { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); width: 40px; text-align: right; }
+  .spacing-bar { height: 24px; background: linear-gradient(90deg, var(--accent), rgba(240,78,35,0.3)); border-radius: 4px; }
+  .spacing-dim { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+
+  .page-nav { display: flex; gap: 16px; margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--border-light); }
+  .page-nav-link { flex: 1; padding: 16px 20px; border: 1px solid var(--border); border-radius: var(--radius-md); text-decoration: none; transition: all var(--transition); cursor: pointer; }
+  .page-nav-link:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+  .page-nav-label { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .page-nav-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .page-nav-link.next { text-align: right; }
+
+  .mobile-toggle { display: none; position: fixed; top: 12px; left: 12px; z-index: 200; width: 40px; height: 40px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); align-items: center; justify-content: center; cursor: pointer; font-size: 18px; }
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 90; }
+
+  @media (max-width: 1100px) { .toc { display: none; } .content-wrapper { padding: 0 32px; } }
+  @media (max-width: 768px) { .mobile-toggle { display: flex; } .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .overlay.open { display: block; } .main { margin-left: 0; } .top-bar { padding: 0 16px 0 60px; } .content-wrapper { padding: 0 20px; } .content { padding: 32px 0 80px; } .page-title { font-size: 1.8rem; } .layout-grid { grid-template-columns: 1fr; } }
+
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .section { animation: fadeInUp 0.5s ease both; }
+  .section:nth-child(2) { animation-delay: 0.05s; } .section:nth-child(3) { animation-delay: 0.1s; } .section:nth-child(4) { animation-delay: 0.15s; } .section:nth-child(5) { animation-delay: 0.2s; } .section:nth-child(6) { animation-delay: 0.25s; }
+</style>
+</head>
+<body>
+
+<button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Toggle navigation">☰</button>
+<div class="overlay" onclick="toggleSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">M</div>
+    <div>
+      <div class="sidebar-title">Maven Design System</div>
+      <div class="sidebar-subtitle">for Slides</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group">
+      <div class="nav-group-title" data-i18n="nav_getting_started">Getting Started</div>
+      <a class="nav-link active" data-section="overview" onclick="scrollToSection('overview')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <span data-i18n="nav_overview">Overview</span></a>
+      <a class="nav-link" data-section="philosophy" onclick="scrollToSection('philosophy')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+        <span data-i18n="nav_philosophy">Design Philosophy</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Base Grid</div>
+      <a class="nav-link" data-section="canvas" onclick="scrollToSection('canvas')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><span data-i18n="nav_canvas">Canvas</span></a>
+      <a class="nav-link" data-section="margin" onclick="scrollToSection('margin')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg><span data-i18n="nav_margin">Margins</span></a>
+      <a class="nav-link" data-section="columns" onclick="scrollToSection('columns')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="18" rx="1"/><rect x="17" y="3" width="5" height="18" rx="1"/></svg><span data-i18n="nav_columns">Column Grid</span></a>
+      <a class="nav-link" data-section="zones" onclick="scrollToSection('zones')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="6" rx="1"/><rect x="3" y="11" width="18" height="6" rx="1"/><rect x="3" y="19" width="18" height="2" rx="1"/></svg><span data-i18n="nav_zones">Vertical Zones</span></a>
+      <a class="nav-link" data-section="baseunit" onclick="scrollToSection('baseunit')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 3H3v18h18V3z"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18" opacity="0.3"/></svg><span data-i18n="nav_baseunit">Base Unit</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Tokens</div>
+      <a class="nav-link" data-section="tokens" onclick="scrollToSection('tokens')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg><span data-i18n="nav_tokens">Design Tokens</span></a>
+      <a class="nav-link" data-section="spacing" onclick="scrollToSection('spacing')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 6H3M21 12H3M21 18H3"/></svg><span data-i18n="nav_spacing">Spacing</span></a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Patterns</div>
+      <a class="nav-link" data-section="layouts" onclick="scrollToSection('layouts')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span data-i18n="nav_layouts">Layout Patterns</span></a>
+      <a class="nav-link" data-section="ai-pipeline" onclick="scrollToSection('ai-pipeline')"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span data-i18n="nav_pipeline">AI Pipeline</span></a>
+    </div>
+  </nav>
+  <div class="sidebar-footer"><div class="sidebar-version"><span class="version-badge">v0.1</span>p0 — Maven Design System</div></div>
+</aside>
+
+<main class="main">
+  <div class="top-bar">
+    <div class="breadcrumb"><a href="#">Maven Design System</a><span class="sep">›</span><span class="current" data-i18n="breadcrumb_current">Base Grid</span></div>
+    <div class="lang-toggle">
+      <button class="lang-btn" data-lang="ja" onclick="setLang('ja')">JA</button>
+      <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
+    </div>
+  </div>
+
+  <div class="content-wrapper">
+    <article class="content">
+
+      <header class="page-header">
+        <div class="page-badge">Foundation</div>
+        <h1 class="page-title" data-i18n-html="page_title">Base Grid System<br>for Slides</h1>
+        <p class="page-description" data-i18n="page_desc">Spatial design for composing beautiful slides on a fixed canvas. Not responsive like the web, but a system of composition closer to cinematic framing.</p>
+      </header>
+
+      <div class="section" id="overview">
+        <h2 data-i18n="h2_overview">Overview</h2>
+        <p data-i18n-html="p_overview_1">Grids for slide design are fundamentally different from those for web or apps. Slides compose information within a <strong>fixed 16:9 canvas (13.33" × 7.5")</strong>, so rather than responsive design, we must think in terms of <strong>Composition</strong>.</p>
+        <p data-i18n-html="p_overview_2">The Maven grid system is built on three layers: Margins (the sacred whitespace), Columns (the horizontal skeleton), and Zones (semantic vertical divisions). Together, they form the spatial grammar that enables AI to auto-generate beautiful slides.</p>
+        <div class="callout info"><svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div class="callout-content"><p data-i18n-html="callout_cinema"><strong>Cinema × Slides:</strong> Both are about placing information within a fixed frame. Just as a film director decides framing, this grid system codifies the compositional power of slides.</p></div></div>
+      </div>
+
+      <div class="section" id="philosophy">
+        <h2 data-i18n="h2_philosophy">Design Philosophy</h2>
+        <p data-i18n="p_philosophy_intro">This design system is built on three principles.</p>
+        <h3 data-i18n="h3_intent">Semantic Clarity</h3>
+        <p data-i18n-html="p_intent">Every grid element has a meaningful name. By defining tokens like <code>margin.outer</code> and <code>zone.title</code> instead of raw coordinates, AI can understand the structure of a slide.</p>
+        <h3 data-i18n="h3_projection">Projection Resilience</h3>
+        <p data-i18n="p_projection">Slides are not only viewed on screens but projected. The grid prevents text from being clipped at screen edges and elements from being too close to distinguish.</p>
+        <h3 data-i18n="h3_adaptability">Content Adaptability</h3>
+        <p data-i18n="p_adaptability">Whether a text-heavy slide or a data dashboard, both should be beautifully laid out on the same grid. The grid is both a rule and a flexible framework.</p>
+      </div>
+
+      <div class="section" id="canvas">
+        <h2 data-i18n="h2_canvas">Canvas</h2>
+        <p data-i18n="p_canvas">The canvas is the origin of all measurements. The 16:9 aspect ratio is the standard for modern displays and projectors.</p>
+        <div class="table-wrapper"><table><thead><tr><th data-i18n="th_property">Property</th><th data-i18n="th_value">Value</th><th data-i18n="th_notes">Notes</th></tr></thead><tbody>
+          <tr><td><code>canvas.width</code></td><td>13.333 in</td><td>960pt / 12192 EMU</td></tr>
+          <tr><td><code>canvas.height</code></td><td>7.5 in</td><td>540pt / 6858000 EMU</td></tr>
+          <tr><td><code>canvas.aspect</code></td><td>16:9</td><td data-i18n="td_widescreen">Widescreen standard</td></tr>
+          <tr><td><code>canvas.dpi</code></td><td>96</td><td data-i18n="td_ppt_res">PowerPoint default resolution</td></tr>
+        </tbody></table></div>
+      </div>
+
+      <div class="section" id="margin">
+        <h2 data-i18n="h2_margin">Margins</h2>
+        <p data-i18n-html="p_margin">Margins are the <strong>sacred whitespace</strong>. They secure the safe area during projection and give content room to breathe.</p>
+        <div class="grid-demo"><div class="grid-demo-label">Margin & Safe Area</div><div class="canvas-demo"><div class="margin-layer"></div><div class="live-area"></div><div class="margin-label top">margin.top: 0.5"</div><div class="margin-label bottom">margin.bottom: 0.6"</div><div class="margin-label left">0.5"</div><div class="margin-label right">0.5"</div></div></div>
+        <div class="table-wrapper"><table><thead><tr><th data-i18n="th_token">Token</th><th data-i18n="th_value">Value</th><th data-i18n="th_purpose">Purpose</th></tr></thead><tbody>
+          <tr><td><code>margin.top</code></td><td>0.5 in</td><td data-i18n="td_margin_top">Projection safe area — top</td></tr>
+          <tr><td><code>margin.bottom</code></td><td>0.6 in</td><td data-i18n="td_margin_bottom">Includes footer / page number area</td></tr>
+          <tr><td><code>margin.left</code></td><td>0.5 in</td><td data-i18n="td_margin_left">Left safe area</td></tr>
+          <tr><td><code>margin.right</code></td><td>0.5 in</td><td data-i18n="td_margin_right">Right safe area</td></tr>
+        </tbody></table></div>
+        <div class="callout tip"><svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg><div class="callout-content"><p data-i18n-html="callout_asymmetric"><strong>Asymmetric margins:</strong> When placing brand logos on one side, using asymmetric margins (e.g. left 0.8", right 0.5") maximizes content area while maintaining brand consistency.</p></div></div>
+      </div>
+
+      <div class="section" id="columns">
+        <h2 data-i18n="h2_columns">Column Grid</h2>
+        <p data-i18n-html="p_columns">For horizontal division, we recommend <strong>6 columns</strong> instead of the web's 12. Slides carry far less information, and 6 columns provide ample flexibility.</p>
+        <div class="grid-demo"><div class="grid-demo-label">6-Column Grid</div><div class="canvas-demo"><div class="columns-demo"><div class="col-bar"><span>1</span></div><div class="col-bar"><span>2</span></div><div class="col-bar"><span>3</span></div><div class="col-bar"><span>4</span></div><div class="col-bar"><span>5</span></div><div class="col-bar"><span>6</span></div></div></div></div>
+        <h3 data-i18n="h3_split_patterns">Split Patterns</h3>
+        <p data-i18n="p_split_patterns">The 6-column grid supports a range of flexible divisions.</p>
+        <div class="table-wrapper"><table><thead><tr><th data-i18n="th_split">Split</th><th data-i18n="th_col_alloc">Columns</th><th data-i18n="th_usecase">Use Case</th></tr></thead><tbody>
+          <tr><td>1/2</td><td><code>3 + 3</code></td><td data-i18n="td_split_half">Equal split: text + image</td></tr>
+          <tr><td>1/3</td><td><code>2 + 2 + 2</code></td><td data-i18n="td_split_third">Three pillars, comparison slides</td></tr>
+          <tr><td>2/3 + 1/3</td><td><code>4 + 2</code></td><td data-i18n="td_split_twothird">Main content + sidebar</td></tr>
+          <tr><td>5/6 + 1/6</td><td><code>5 + 1</code></td><td data-i18n="td_split_fivesix">Full width + side accent</td></tr>
+          <tr><td data-i18n="td_fullwidth">Full width</td><td><code>6</code></td><td data-i18n="td_split_full">Title slides, full-bleed images</td></tr>
+        </tbody></table></div>
+        <h3 data-i18n="h3_gutter">Gutter</h3>
+        <p data-i18n-html="p_gutter">The standard gutter width is <code>0.3 in</code>. Wider than web ensures clear element distinction during projection.</p>
+      </div>
+
+      <div class="section" id="zones">
+        <h2 data-i18n="h2_zones">Vertical Zones</h2>
+        <p data-i18n-html="p_zones">Instead of a web-style baseline grid, the vertical axis is divided into <strong>semantic zones</strong>. Three distinct roles.</p>
+        <div class="grid-demo"><div class="grid-demo-label">Vertical Zones</div><div class="canvas-demo"><div class="zone title-zone">TITLE ZONE — ≈20%</div><div class="zone content-zone">CONTENT ZONE — ≈65%</div><div class="zone footer-zone">FOOTER — ≈15%</div></div></div>
+        <div class="table-wrapper"><table><thead><tr><th data-i18n="th_zone">Zone</th><th data-i18n="th_token">Token</th><th data-i18n="th_position">Position</th><th data-i18n="th_role">Role</th></tr></thead><tbody>
+          <tr><td style="color:var(--accent);font-weight:600;">Title</td><td><code>zone.title</code></td><td data-i18n="td_zone_title_pos">0.5" – 1.7" from top</td><td data-i18n="td_zone_title_role">Slide title & subtitle</td></tr>
+          <tr><td style="color:var(--blue);font-weight:600;">Content</td><td><code>zone.content</code></td><td>1.7" – 6.5"</td><td data-i18n="td_zone_content_role">Body, charts, images, data</td></tr>
+          <tr><td style="color:var(--green);font-weight:600;">Footer</td><td><code>zone.footer</code></td><td>6.5" – 7.0"</td><td data-i18n="td_zone_footer_role">Page numbers, sources, logo</td></tr>
+        </tbody></table></div>
+        <div class="callout tip"><svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg><div class="callout-content"><p data-i18n-html="callout_zones_flex"><strong>Flexible zone boundaries:</strong> These ratios are defaults. On a no-title slide, the Content Zone extends to the top; on dashboards, the Footer Zone may be omitted.</p></div></div>
+      </div>
+
+      <div class="section" id="baseunit">
+        <h2 data-i18n="h2_baseunit">Base Unit</h2>
+        <p data-i18n-html="p_baseunit_1">We adopt <strong>0.25 in (18pt)</strong> as the minimum unit for aligning all sizes and positions.</p>
+        <p data-i18n-html="p_baseunit_2">Three reasons: high compatibility with PowerPoint's snap grid, 7.5" ÷ 0.25" = <strong>30 rows</strong> of flexibility, and 13.33" ÷ 0.25" ≒ <strong>53 columns</strong> for fine adjustments.</p>
+        <div class="table-wrapper"><table><thead><tr><th data-i18n="th_property">Property</th><th data-i18n="th_value">Value</th><th data-i18n="th_grid_count">Grid Count</th></tr></thead><tbody>
+          <tr><td><code>base-unit</code></td><td>0.25 in (18pt)</td><td>—</td></tr>
+          <tr><td data-i18n="td_horizontal_grid">Horizontal grid</td><td>13.33" ÷ 0.25"</td><td>≈ 53 units</td></tr>
+          <tr><td data-i18n="td_vertical_grid">Vertical grid</td><td>7.5" ÷ 0.25"</td><td>30 units</td></tr>
+        </tbody></table></div>
+      </div>
+
+      <div class="section" id="tokens">
+        <h2 data-i18n="h2_tokens">Design Tokens</h2>
+        <p data-i18n="p_tokens">By structuring the entire grid system as tokens, AI can understand spatial information and generate consistent layouts.</p>
+        <div class="code-label">grid-tokens.yaml</div>
+<pre><code>grid:
+  canvas:
+    width: 13.333in
+    height: 7.5in
+    aspect: 16:9
+    dpi: 96
+  margin:
+    top: 0.5in
+    bottom: 0.6in
+    left: 0.5in
+    right: 0.5in
+  columns: 6
+  gutter: 0.3in
+  zones:
+    title:  { top: 0.5in, height: 1.2in }
+    content: { top: 1.7in, height: 4.8in }
+    footer: { top: 6.5in, height: 0.5in }
+  base-unit: 0.25in
+  spacing:
+    xs: 0.125in    # 1/2 unit
+    sm: 0.25in     # 1 unit
+    md: 0.5in      # 2 units
+    lg: 0.75in     # 3 units
+    xl: 1.0in      # 4 units</code></pre>
+      </div>
+
+      <div class="section" id="spacing">
+        <h2 data-i18n="h2_spacing">Spacing Scale</h2>
+        <p data-i18n="p_spacing">All margins and padding are defined as multiples of the base unit (0.25"). This ensures rhythmic, visually consistent spacing.</p>
+        <div class="spacing-scale">
+          <div class="spacing-row"><span class="spacing-label">xs</span><div class="spacing-bar" style="width:24px;"></div><span class="spacing-dim">0.125" — 9pt</span></div>
+          <div class="spacing-row"><span class="spacing-label">sm</span><div class="spacing-bar" style="width:48px;"></div><span class="spacing-dim">0.25" — 18pt (1 unit)</span></div>
+          <div class="spacing-row"><span class="spacing-label">md</span><div class="spacing-bar" style="width:96px;"></div><span class="spacing-dim">0.5" — 36pt (2 units)</span></div>
+          <div class="spacing-row"><span class="spacing-label">lg</span><div class="spacing-bar" style="width:144px;"></div><span class="spacing-dim">0.75" — 54pt (3 units)</span></div>
+          <div class="spacing-row"><span class="spacing-label">xl</span><div class="spacing-bar" style="width:192px;"></div><span class="spacing-dim">1.0" — 72pt (4 units)</span></div>
+        </div>
+        <div class="callout info"><svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div class="callout-content"><p data-i18n-html="callout_emu"><strong>python-pptx conversion:</strong> PowerPoint uses EMU (English Metric Unit): 1 inch = 914400 EMU. Implement as <code>base-unit = 0.25in = 228600 EMU</code>.</p></div></div>
+      </div>
+
+      <div class="section" id="layouts">
+        <h2 data-i18n="h2_layouts">Layout Patterns</h2>
+        <p data-i18n="p_layouts">Concrete layouts built on the grid. Each maps to a user intent, letting AI auto-select the optimal pattern by content type and volume.</p>
+        <div class="layout-grid">
+          <div class="layout-card"><div class="layout-card-title">full-bleed</div><div class="layout-card-desc" data-i18n="layout_fullbleed">6-col full width — Impact / photos</div><div class="layout-mini"><div class="block title-b" style="top:8%;left:8%;width:50%;height:12%;"></div><div class="block image-b" style="top:0;left:0;width:100%;height:100%;opacity:0.3;"></div></div></div>
+          <div class="layout-card"><div class="layout-card-title">text-image</div><div class="layout-card-desc" data-i18n="layout_textimage">4+2 or 3+3 — Explanation + visual</div><div class="layout-mini"><div class="block title-b" style="top:8%;left:8%;width:55%;height:10%;"></div><div class="block content-b" style="top:24%;left:8%;width:50%;height:55%;"></div><div class="block image-b" style="top:24%;left:62%;width:32%;height:55%;"></div><div class="block footer-b" style="top:86%;left:8%;width:25%;height:5%;"></div></div></div>
+          <div class="layout-card"><div class="layout-card-title">three-up</div><div class="layout-card-desc" data-i18n="layout_threeup">2+2+2 — Comparison / three pillars</div><div class="layout-mini"><div class="block title-b" style="top:8%;left:8%;width:60%;height:10%;"></div><div class="block content-b" style="top:26%;left:8%;width:26%;height:52%;"></div><div class="block content-b" style="top:26%;left:38%;width:26%;height:52%;"></div><div class="block content-b" style="top:26%;left:68%;width:26%;height:52%;"></div><div class="block footer-b" style="top:86%;left:8%;width:20%;height:5%;"></div></div></div>
+          <div class="layout-card"><div class="layout-card-title">four-up</div><div class="layout-card-desc" data-i18n="layout_fourup">2×2 Grid — KPIs / quadrants</div><div class="layout-mini"><div class="block title-b" style="top:8%;left:8%;width:45%;height:10%;"></div><div class="block content-b" style="top:24%;left:8%;width:40%;height:26%;"></div><div class="block content-b" style="top:24%;left:53%;width:40%;height:26%;"></div><div class="block image-b" style="top:55%;left:8%;width:40%;height:26%;"></div><div class="block image-b" style="top:55%;left:53%;width:40%;height:26%;"></div></div></div>
+          <div class="layout-card"><div class="layout-card-title">title-only</div><div class="layout-card-desc" data-i18n="layout_titleonly">6-col center — Section divider</div><div class="layout-mini"><div class="block title-b" style="top:36%;left:20%;width:60%;height:10%;"></div><div class="block footer-b" style="top:50%;left:30%;width:40%;height:5%;opacity:0.5;"></div></div></div>
+          <div class="layout-card"><div class="layout-card-title">quote</div><div class="layout-card-desc" data-i18n="layout_quote">6-col center — Quotes / messages</div><div class="layout-mini"><div class="block title-b" style="top:10%;left:10%;width:8%;height:15%;opacity:0.3;"></div><div class="block content-b" style="top:30%;left:15%;width:70%;height:25%;"></div><div class="block footer-b" style="top:62%;left:35%;width:30%;height:6%;"></div></div></div>
+        </div>
+      </div>
+
+      <div class="section" id="ai-pipeline">
+        <h2 data-i18n="h2_pipeline">AI Transformation Pipeline</h2>
+        <p data-i18n="p_pipeline">p0's AI receives user intent, passes through design tokens, and transforms into final coordinates. This three-stage pipeline enables intent-based slide generation.</p>
+<pre id="pipeline-code"><code>Intent                 Pattern                   Coordinates
+─────────────          ──────────────────         ─────────────────────
+"Compare"         →    three-up               →   col:2+2+2, zone:content
+"Make impact"     →    full-bleed             →   col:6, zone:all
+"Show data"       →    four-up / dashboard    →   col:3+3, zone:content
+"Key message"     →    text-image             →   col:4+2, zone:content</code></pre>
+        <h3 data-i18n="h3_adapt_rules">Content Adaptation Rules</h3>
+        <p data-i18n="p_adapt_rules">A ruleset for AI to dynamically adjust grid allocation based on content volume.</p>
+        <div class="table-wrapper"><table><thead><tr><th data-i18n="th_condition">Condition</th><th data-i18n="th_rule">Adjustment Rule</th></tr></thead><tbody>
+          <tr><td data-i18n="td_cond_text">Heavy text</td><td data-i18n-html="td_rule_text">Expand column ratio from <code>4:2</code> → <code>5:1</code></td></tr>
+          <tr><td data-i18n="td_cond_images">Multiple images</td><td data-i18n-html="td_rule_images">Switch <code>text-image</code> → <code>three-up</code></td></tr>
+          <tr><td data-i18n="td_cond_data">4+ data points</td><td data-i18n-html="td_rule_data">Auto-select <code>four-up</code> grid</td></tr>
+          <tr><td data-i18n="td_cond_imgonly">Image only, no text</td><td data-i18n-html="td_rule_imgonly"><code>full-bleed</code> + overlay title</td></tr>
+          <tr><td data-i18n="td_cond_quote">Quote / single message</td><td data-i18n-html="td_rule_quote"><code>quote</code> pattern, centered</td></tr>
+        </tbody></table></div>
+        <div class="callout tip"><svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg><div class="callout-content"><p data-i18n-html="callout_nextstep"><strong>Next steps:</strong> Layering a Typography Scale and Color System on top of this grid completes the full slide design system.</p></div></div>
+      </div>
+
+      <div class="page-nav">
+        <a class="page-nav-link prev" onclick="scrollToSection('overview')"><div class="page-nav-label">← Previous</div><div class="page-nav-title" data-i18n="nav_prev_title">Overview</div></a>
+        <a class="page-nav-link next"><div class="page-nav-label">Next →</div><div class="page-nav-title" data-i18n="nav_next_title">Typography Scale</div></a>
+      </div>
+    </article>
+
+    <aside class="toc" id="toc">
+      <div class="toc-title" data-i18n="toc_title">On this page</div>
+      <a href="#overview" data-i18n="nav_overview">Overview</a>
+      <a href="#philosophy" data-i18n="nav_philosophy">Design Philosophy</a>
+      <a href="#canvas" data-i18n="nav_canvas">Canvas</a>
+      <a href="#margin" data-i18n="nav_margin">Margins</a>
+      <a href="#columns" data-i18n="nav_columns">Column Grid</a>
+      <a class="toc-h3" href="#columns" data-i18n="h3_split_patterns">Split Patterns</a>
+      <a class="toc-h3" href="#columns" data-i18n="h3_gutter">Gutter</a>
+      <a href="#zones" data-i18n="nav_zones">Vertical Zones</a>
+      <a href="#baseunit" data-i18n="nav_baseunit">Base Unit</a>
+      <a href="#tokens" data-i18n="nav_tokens">Design Tokens</a>
+      <a href="#spacing" data-i18n="nav_spacing">Spacing</a>
+      <a href="#layouts" data-i18n="nav_layouts">Layout Patterns</a>
+      <a href="#ai-pipeline" data-i18n="nav_pipeline">AI Pipeline</a>
+      <a class="toc-h3" href="#ai-pipeline" data-i18n="h3_adapt_rules">Content Adaptation Rules</a>
+    </aside>
+  </div>
+</main>
+
+<script>
+const i18n={ja:{nav_getting_started:"はじめに",nav_overview:"概要",nav_philosophy:"設計思想",nav_canvas:"キャンバス",nav_margin:"マージン",nav_columns:"カラムグリッド",nav_zones:"ゾーン分割",nav_baseunit:"ベースユニット",nav_tokens:"デザイントークン",nav_spacing:"スペーシング",nav_layouts:"レイアウトパターン",nav_pipeline:"AI変換パイプライン",breadcrumb_current:"ベースグリッド",toc_title:"このページの内容",page_title:"スライド専用<br>ベースグリッドシステム",page_desc:"固定キャンバス上で美しいスライドを構成するための空間設計。Webの「レスポンシブ」ではなく、映画のフレーミングに近い「構図」の体系。",h2_overview:"概要",p_overview_1:'スライドデザインにおけるグリッドは、Webやアプリのグリッドとは根本的に異なります。スライドは<strong>16:9（13.33" × 7.5"）の固定キャンバス</strong>という制約の中で情報を構成するため、レスポンシブではなく<strong>構図（Composition）</strong>の概念で捉える必要があります。',p_overview_2:"Mavenグリッドシステムは3つのレイヤーで構成されます。マージン（余白の聖域）、カラム（水平分割の骨格）、ゾーン（垂直方向の意味的分割）。これらが組み合わさることで、AIが美しいスライドを自動生成するための空間文法となります。",callout_cinema:"<strong>映画とスライドの共通点：</strong>どちらも固定フレーム内での情報配置が勝負です。映画監督がフレーミングを決めるように、このグリッドシステムはスライドの「構図力」を体系化します。",h2_philosophy:"設計思想",p_philosophy_intro:"このデザインシステムは3つの原則に基づいています。",h3_intent:"意図の明確化",p_intent:'すべてのグリッド要素に意味のある名前を持たせます。座標値ではなく <code>margin.outer</code> や <code>zone.title</code> といったセマンティックなトークンで定義することで、AIがスライドの構造を「理解」できるようにします。',h3_projection:"投影耐性",p_projection:"スライドは画面上だけでなくプロジェクターで投影されます。テキストの端がスクリーンの外に切れる、要素が近すぎて判別できないといった問題を、グリッドレベルで防ぎます。",h3_adaptability:"コンテンツ適応性",p_adaptability:"同じグリッドの上で、テキスト中心のスライドもデータダッシュボードも美しく配置できること。グリッドはルールであると同時に、柔軟なフレームワークでもあります。",h2_canvas:"キャンバス",p_canvas:"すべての基準点となるキャンバスサイズ。16:9のアスペクト比は現代のディスプレイとプロジェクターの標準です。",th_property:"プロパティ",th_value:"値",th_notes:"備考",td_widescreen:"ワイドスクリーン標準",td_ppt_res:"PowerPoint標準解像度",h2_margin:"マージン",p_margin:'マージンは<strong>余白の聖域</strong>です。投影時のセーフエリアを確保すると同時に、コンテンツに「呼吸する空間」を与えます。',th_token:"トークン",th_purpose:"用途",td_margin_top:"投影セーフエリア上端",td_margin_bottom:"フッター・ページ番号領域含む",td_margin_left:"左端セーフエリア",td_margin_right:"右端セーフエリア",callout_asymmetric:'<strong>非対称マージン：</strong>ブランドロゴやデコレーション要素を片側に配置する場合、左マージンを 0.8"、右を 0.5" のように非対称にすることで、情報領域を最大化しつつブランドの視覚的一貫性を保てます。',h2_columns:"カラムグリッド",p_columns:"水平方向の分割にはWebの12カラムではなく、<strong>6カラム</strong>を推奨します。スライドは情報量がWebよりはるかに少なく、6カラムで十分な柔軟性が得られます。",h3_split_patterns:"分割パターン",p_split_patterns:"6カラムは以下のように柔軟に分割できます。",th_split:"分割",th_col_alloc:"カラム配分",th_usecase:"ユースケース",td_split_half:"テキスト＋画像の均等分割",td_split_third:"3つの柱、比較スライド",td_split_twothird:"メインコンテンツ＋サブ情報",td_split_fivesix:"フル幅＋サイドアクセント",td_fullwidth:"全幅",td_split_full:"タイトルスライド、画像フルブリード",h3_gutter:"ガター",p_gutter:'カラム間のガター幅は <code>0.3 in</code> を標準とします。Webよりも広めに取ることで、プロジェクター投影時にも要素間の区別が明確になります。',h2_zones:"ゾーン分割",p_zones:"垂直方向はWebのベースライングリッドではなく、<strong>意味的なゾーン</strong>で分割します。スライドの縦方向は3つの明確な役割に分かれます。",th_zone:"ゾーン",th_position:"位置",th_role:"役割",td_zone_title_pos:'上端から 0.5" – 1.7"',td_zone_title_role:"スライドタイトル・サブタイトル",td_zone_content_role:"本文・グラフ・画像・データ",td_zone_footer_role:"ページ番号・出典・ロゴ",callout_zones_flex:"<strong>ゾーン境界は柔軟に：</strong>これらの比率は「デフォルト」です。タイトルなしスライドではContent Zoneが上端まで拡張し、ダッシュボードスライドではFooter Zoneを省略するなど、レイアウトパターンごとにゾーン比率を上書きできます。",h2_baseunit:"ベースユニット",p_baseunit_1:'すべてのサイズと位置を揃えるための最小単位として <strong>0.25 in（18pt）</strong>を採用します。',p_baseunit_2:'この値を選ぶ理由は3つあります。PowerPointのスナップグリッドとの親和性が高いこと、7.5" ÷ 0.25" = <strong>30行</strong>のグリッドで十分な柔軟性があること、そして 13.33" ÷ 0.25" ≒ <strong>53列</strong>という解像度が細かい位置調整に対応できることです。',th_grid_count:"グリッド数",td_horizontal_grid:"水平グリッド",td_vertical_grid:"垂直グリッド",h2_tokens:"デザイントークン",p_tokens:"グリッドシステム全体をトークンとして構造化することで、AIが空間情報を理解し、一貫したレイアウトを生成できるようになります。",h2_spacing:"スペーシングスケール",p_spacing:'すべての余白・パディングはベースユニット（0.25"）の倍数で定義します。これにより要素間の間隔が常にリズミカルに揃い、視覚的な一貫性が生まれます。',callout_emu:'<strong>python-pptx への変換：</strong>PowerPointの内部単位 EMU（English Metric Unit）では 1 inch = 914400 EMU です。<code>base-unit = 0.25in = 228600 EMU</code> として実装します。',h2_layouts:"レイアウトパターン",p_layouts:"グリッドの上に構築される具体的なレイアウト。それぞれがユーザーの「意図」に対応し、AIがコンテンツの種類と量に応じて最適なパターンを自動選択できます。",layout_fullbleed:"6カラム全幅 — インパクト・写真",layout_textimage:"4+2 or 3+3 — 説明＋ビジュアル",layout_threeup:"2+2+2 — 比較・3つの柱",layout_fourup:"2×2 Grid — KPI・象限",layout_titleonly:"6カラム中央 — セクション区切り",layout_quote:"6カラム中央 — 引用・メッセージ",h2_pipeline:"AI変換パイプライン",p_pipeline:"p0のAIはユーザーの「意図」を受け取り、デザイントークンを経由して最終的な座標値へと変換します。この3段階のパイプラインが、意図ベースのスライド生成を可能にします。",pipeline_code:'Intent（意図）         Pattern（パターン）       Coordinates（座標）\n─────────────          ──────────────────         ─────────────────────\n"比較したい"      →    three-up               →   col:2+2+2, zone:content\n"インパクト出したい" →    full-bleed             →   col:6, zone:全域\n"データを見せたい"   →    four-up / dashboard    →   col:3+3, zone:content\n"要点を伝えたい"    →    text-image             →   col:4+2, zone:content',h3_adapt_rules:"コンテンツ適応ルール",p_adapt_rules:"AIがコンテンツ量に応じてグリッド配分を動的に調整するためのルールセットです。",th_condition:"条件",th_rule:"調整ルール",td_cond_text:"テキスト量が多い",td_rule_text:'カラム比を <code>4:2</code> → <code>5:1</code> に拡張',td_cond_images:"画像が複数ある",td_rule_images:'<code>text-image</code> → <code>three-up</code> へ切替',td_cond_data:"データポイントが4つ以上",td_rule_data:'<code>four-up</code> グリッドを自動選択',td_cond_imgonly:"テキストなし・画像のみ",td_rule_imgonly:'<code>full-bleed</code> + オーバーレイタイトル',td_cond_quote:"引用・単一メッセージ",td_rule_quote:'<code>quote</code> パターン、中央揃え',callout_nextstep:"<strong>次のステップ：</strong>このグリッドシステムの上に、タイポグラフィスケール（Type Scale）とカラーシステム（Color Tokens）を重ねることで、完全なスライドデザインシステムが完成します。",nav_prev_title:"概要",nav_next_title:"タイポグラフィスケール"},en:{nav_getting_started:"Getting Started",nav_overview:"Overview",nav_philosophy:"Design Philosophy",nav_canvas:"Canvas",nav_margin:"Margins",nav_columns:"Column Grid",nav_zones:"Vertical Zones",nav_baseunit:"Base Unit",nav_tokens:"Design Tokens",nav_spacing:"Spacing",nav_layouts:"Layout Patterns",nav_pipeline:"AI Pipeline",breadcrumb_current:"Base Grid",toc_title:"On this page",page_title:"Base Grid System<br>for Slides",page_desc:'Spatial design for composing beautiful slides on a fixed canvas. Not responsive like the web, but a system of composition closer to cinematic framing.',h2_overview:"Overview",p_overview_1:'Grids for slide design are fundamentally different from those for web or apps. Slides compose information within a <strong>fixed 16:9 canvas (13.33" × 7.5")</strong>, so rather than responsive design, we must think in terms of <strong>Composition</strong>.',p_overview_2:"The Maven grid system is built on three layers: Margins (the sacred whitespace), Columns (the horizontal skeleton), and Zones (semantic vertical divisions). Together, they form the spatial grammar that enables AI to auto-generate beautiful slides.",callout_cinema:'<strong>Cinema × Slides:</strong> Both are about placing information within a fixed frame. Just as a film director decides framing, this grid system codifies the compositional power of slides.',h2_philosophy:"Design Philosophy",p_philosophy_intro:"This design system is built on three principles.",h3_intent:"Semantic Clarity",p_intent:'Every grid element has a meaningful name. By defining tokens like <code>margin.outer</code> and <code>zone.title</code> instead of raw coordinates, AI can understand the structure of a slide.',h3_projection:"Projection Resilience",p_projection:"Slides are not only viewed on screens but projected. The grid prevents text from being clipped at screen edges and elements from being too close to distinguish.",h3_adaptability:"Content Adaptability",p_adaptability:"Whether a text-heavy slide or a data dashboard, both should be beautifully laid out on the same grid. The grid is both a rule and a flexible framework.",h2_canvas:"Canvas",p_canvas:"The canvas is the origin of all measurements. The 16:9 aspect ratio is the standard for modern displays and projectors.",th_property:"Property",th_value:"Value",th_notes:"Notes",td_widescreen:"Widescreen standard",td_ppt_res:"PowerPoint default resolution",h2_margin:"Margins",p_margin:'Margins are the <strong>sacred whitespace</strong>. They secure the safe area during projection and give content room to breathe.',th_token:"Token",th_purpose:"Purpose",td_margin_top:"Projection safe area — top",td_margin_bottom:"Includes footer / page number area",td_margin_left:"Left safe area",td_margin_right:"Right safe area",callout_asymmetric:'<strong>Asymmetric margins:</strong> When placing brand logos on one side, using asymmetric margins (e.g. left 0.8", right 0.5") maximizes content area while maintaining brand consistency.',h2_columns:"Column Grid",p_columns:"For horizontal division, we recommend <strong>6 columns</strong> instead of the web's 12. Slides carry far less information, and 6 columns provide ample flexibility.",h3_split_patterns:"Split Patterns",p_split_patterns:"The 6-column grid supports a range of flexible divisions.",th_split:"Split",th_col_alloc:"Columns",th_usecase:"Use Case",td_split_half:"Equal split: text + image",td_split_third:"Three pillars, comparison slides",td_split_twothird:"Main content + sidebar",td_split_fivesix:"Full width + side accent",td_fullwidth:"Full width",td_split_full:"Title slides, full-bleed images",h3_gutter:"Gutter",p_gutter:'The standard gutter width is <code>0.3 in</code>. Wider than web ensures clear element distinction during projection.',h2_zones:"Vertical Zones",p_zones:'Instead of a web-style baseline grid, the vertical axis is divided into <strong>semantic zones</strong>. Three distinct roles.',th_zone:"Zone",th_position:"Position",th_role:"Role",td_zone_title_pos:'0.5" – 1.7" from top',td_zone_title_role:"Slide title & subtitle",td_zone_content_role:"Body, charts, images, data",td_zone_footer_role:"Page numbers, sources, logo",callout_zones_flex:"<strong>Flexible zone boundaries:</strong> These ratios are defaults. On a no-title slide, the Content Zone extends to the top; on dashboards, the Footer Zone may be omitted.",h2_baseunit:"Base Unit",p_baseunit_1:'We adopt <strong>0.25 in (18pt)</strong> as the minimum unit for aligning all sizes and positions.',p_baseunit_2:'Three reasons: high compatibility with PowerPoint\'s snap grid, 7.5" ÷ 0.25" = <strong>30 rows</strong> of flexibility, and 13.33" ÷ 0.25" ≒ <strong>53 columns</strong> for fine adjustments.',th_grid_count:"Grid Count",td_horizontal_grid:"Horizontal grid",td_vertical_grid:"Vertical grid",h2_tokens:"Design Tokens",p_tokens:"By structuring the entire grid system as tokens, AI can understand spatial information and generate consistent layouts.",h2_spacing:"Spacing Scale",p_spacing:'All margins and padding are defined as multiples of the base unit (0.25"). This ensures rhythmic, visually consistent spacing.',callout_emu:'<strong>python-pptx conversion:</strong> PowerPoint uses EMU (English Metric Unit): 1 inch = 914400 EMU. Implement as <code>base-unit = 0.25in = 228600 EMU</code>.',h2_layouts:"Layout Patterns",p_layouts:"Concrete layouts built on the grid. Each maps to a user intent, letting AI auto-select the optimal pattern by content type and volume.",layout_fullbleed:"6-col full width — Impact / photos",layout_textimage:"4+2 or 3+3 — Explanation + visual",layout_threeup:"2+2+2 — Comparison / three pillars",layout_fourup:"2×2 Grid — KPIs / quadrants",layout_titleonly:"6-col center — Section divider",layout_quote:"6-col center — Quotes / messages",h2_pipeline:"AI Transformation Pipeline",p_pipeline:"p0's AI receives user intent, passes through design tokens, and transforms into final coordinates. This three-stage pipeline enables intent-based slide generation.",pipeline_code:'Intent                 Pattern                   Coordinates\n─────────────          ──────────────────         ─────────────────────\n"Compare"         →    three-up               →   col:2+2+2, zone:content\n"Make impact"     →    full-bleed             →   col:6, zone:all\n"Show data"       →    four-up / dashboard    →   col:3+3, zone:content\n"Key message"     →    text-image             →   col:4+2, zone:content',h3_adapt_rules:"Content Adaptation Rules",p_adapt_rules:"A ruleset for AI to dynamically adjust grid allocation based on content volume.",th_condition:"Condition",th_rule:"Adjustment Rule",td_cond_text:"Heavy text",td_rule_text:'Expand column ratio from <code>4:2</code> → <code>5:1</code>',td_cond_images:"Multiple images",td_rule_images:'Switch <code>text-image</code> → <code>three-up</code>',td_cond_data:"4+ data points",td_rule_data:'Auto-select <code>four-up</code> grid',td_cond_imgonly:"Image only, no text",td_rule_imgonly:'<code>full-bleed</code> + overlay title',td_cond_quote:"Quote / single message",td_rule_quote:'<code>quote</code> pattern, centered',callout_nextstep:"<strong>Next steps:</strong> Layering a Typography Scale and Color System on top of this grid completes the full slide design system.",nav_prev_title:"Overview",nav_next_title:"Typography Scale"}};
+
+let currentLang='ja';
+function setLang(lang){currentLang=lang;document.documentElement.lang=lang;applyTranslations(lang);document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));}
+function applyTranslations(lang){const d=i18n[lang];if(!d)return;document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(d[k]!==undefined)el.textContent=d[k];});document.querySelectorAll('[data-i18n-html]').forEach(el=>{const k=el.getAttribute('data-i18n-html');if(d[k]!==undefined)el.innerHTML=d[k];});const p=document.getElementById('pipeline-code');if(p&&d.pipeline_code)p.innerHTML='<code>'+d.pipeline_code+'</code>';}
+setLang('ja');
+
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.querySelector('.overlay').classList.toggle('open');}
+function scrollToSection(id){const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:'smooth'});document.getElementById('sidebar').classList.remove('open');document.querySelector('.overlay').classList.remove('open');}
+const observer=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(entry.isIntersecting){const id=entry.target.id;document.querySelectorAll('.nav-link[data-section]').forEach(l=>l.classList.toggle('active',l.dataset.section===id));document.querySelectorAll('.toc a').forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+id));}});},{rootMargin:'-20% 0px -60% 0px',threshold:0});
+document.querySelectorAll('.section[id]').forEach(s=>observer.observe(s));
+</script>
+</body>
+</html>
